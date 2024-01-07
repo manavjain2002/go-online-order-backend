@@ -8,27 +8,28 @@ import (
 	"github.com/manavjain2002/go-amazon-clone-backend/api/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var userCollection = Db.Collection("User")
 
-func getOneUser(id string) models.User {
+func getOneUser(id string) (models.User, error) {
 	userId, _ := primitive.ObjectIDFromHex(id)
 	data := userCollection.FindOne(context.Background(), bson.M{"_id": userId})
 
 	var user models.User
 	err := data.Decode(&user)
 	if err != nil {
-		fmt.Println("Unable to find User with id", id, ".Error: ", err)
+		return models.User{}, errors.New("Unable to find User with id" + id + ".Error: " + err.Error())
 	}
 
-	return user
+	return user, nil
 }
 
-func getAllUsers() []models.User {
+func getAllUsers() ([]models.User, error) {
 	cursor, err := userCollection.Find(context.Background(), bson.M{})
 	if err != nil {
-		fmt.Println("Unable to find all users. Error: ", err)
+		return []models.User{}, err
 	}
 
 	var users []models.User
@@ -40,8 +41,7 @@ func getAllUsers() []models.User {
 		}
 		users = append(users, user)
 	}
-	fmt.Println(users)
-	return users
+	return users, nil
 }
 
 func findUserByEmail(email string) primitive.ObjectID {
@@ -53,18 +53,16 @@ func findUserByEmail(email string) primitive.ObjectID {
 	return user.UserID
 }
 
-func insertOneUser(user models.User) error {
+func insertOneUser(user models.User) (*mongo.InsertOneResult, error) {
 	inserted, err := userCollection.InsertOne(context.Background(), user)
 	if err != nil {
-		return err
+		return &mongo.InsertOneResult{}, err
 	}
 
-	fmt.Println("User created with id : ", inserted.InsertedID)
-	fmt.Println("Created User : ", user)
-	return nil
+	return inserted, nil
 }
 
-func updateOneUser(id string, updatedValues primitive.M) models.User {
+func updateOneUser(id string, updatedValues primitive.M) (models.User, error) {
 
 	userId, _ := primitive.ObjectIDFromHex(id)
 
@@ -74,54 +72,70 @@ func updateOneUser(id string, updatedValues primitive.M) models.User {
 
 	updated, err := userCollection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
-		fmt.Println("Unable to update one user. Error: ", err)
+		return models.User{}, err
 	}
 
 	if updated.ModifiedCount > 0 {
-		fmt.Println("User successfully updated with id: ", id)
+		updatedUser, err := getOneUser(id)
+		if err != nil {
+			return models.User{}, err
+		}
+
+		return updatedUser, nil
+	} else {
+		return models.User{}, errors.New("no updated user")
 	}
 
-	updatedUser := getOneUser(id)
-
-	return updatedUser
 }
 
-func deleteOneUser(id string) models.User {
+func deleteOneUser(id string) (models.User, error) {
 	userId, _ := primitive.ObjectIDFromHex(id)
 
-	deletedUser := getOneUser(id)
+	deletedUser, err := getOneUser(id)
+	if err != nil {
+		return models.User{}, err
+	}
 	filter := bson.M{"_id": userId}
 
 	deleted, err := userCollection.DeleteOne(context.Background(), filter)
 	if err != nil {
-		fmt.Println("Unable to delete one user. Error: ", err)
+		return models.User{}, err
 	}
 
 	if deleted.DeletedCount > 0 {
-		fmt.Println("User successfully updated with id: ", id)
+		return deletedUser, nil
+	} else {
+		return models.User{}, errors.New("no deleted user")
 	}
 
-	return deletedUser
 }
 
-func deleteAllUsers() []models.User {
+func deleteAllUsers() ([]models.User, error) {
 
-	deletedUsers := getAllUsers()
+	deletedUsers, err := getAllUsers()
+	if err != nil {
+		return []models.User{}, err
+	}
 
 	deleted, err := userCollection.DeleteMany(context.Background(), bson.M{})
 	if err != nil {
-		fmt.Println("Unable to delete all users. Error: ", err)
+		return []models.User{}, err
 	}
 
 	if deleted.DeletedCount > 0 {
-		fmt.Println("Users successfully deleted")
+		return deletedUsers, nil
+	} else {
+		return []models.User{}, errors.New("no deleted users")
 	}
 
-	return deletedUsers
 }
 
 func GetOneUser(id string) (models.User, error) {
-	user := getOneUser(id)
+	user, err := getOneUser(id)
+
+	if err != nil {
+		return models.User{}, err
+	}
 
 	if user == (models.User{}) {
 		return models.User{}, errors.New("no such id")
@@ -131,7 +145,11 @@ func GetOneUser(id string) (models.User, error) {
 }
 
 func GetAllUsers() ([]models.User, error) {
-	users := getAllUsers()
+	users, err := getAllUsers()
+
+	if err != nil {
+		return []models.User{}, err
+	}
 
 	if len(users) <= 0 {
 		return []models.User{}, errors.New("no users")
@@ -142,10 +160,11 @@ func GetAllUsers() ([]models.User, error) {
 func CreateOneUser(user models.User) primitive.ObjectID {
 	id := findUserByEmail(user.Email)
 	if id.IsZero() {
-		err := insertOneUser(user)
+		_, err := insertOneUser(user)
 		if err != nil {
 			return primitive.NilObjectID
 		}
+
 	} else {
 		return primitive.NilObjectID
 	}
@@ -153,32 +172,46 @@ func CreateOneUser(user models.User) primitive.ObjectID {
 	return userId
 }
 
-func UpdateOneUser(id string, updatedValues primitive.M) models.User {
-	user := getOneUser(id)
-
+func UpdateOneUser(id string, updatedValues primitive.M) (models.User, error) {
+	user, err := getOneUser(id)
+	if err != nil {
+		return models.User{}, err
+	}
 	if user != (models.User{}) {
-		updatedUser := updateOneUser(id, updatedValues)
-		return updatedUser
+		updatedUser, err := updateOneUser(id, updatedValues)
+		if err != nil {
+			return models.User{}, err
+		}
+		return updatedUser, nil
+	} else {
+		return models.User{}, errors.New("no users updated")
 	}
 
-	return models.User{}
 }
 
-func DeleteOneUser(id string) models.User {
-	user := getOneUser(id)
-
+func DeleteOneUser(id string) (models.User, error) {
+	user, err := getOneUser(id)
+	if err != nil {
+		return models.User{}, err
+	}
 	if user != (models.User{}) {
-		deletedUser := deleteOneUser(id)
-		return deletedUser
+		deletedUser, err := deleteOneUser(id)
+		if err != nil {
+			return models.User{}, err
+		}
+		return deletedUser, nil
 	}
 
-	return models.User{}
+	return models.User{}, errors.New("No deleted user")
 }
 
-func DeleteAllUsers() []models.User {
-	deletedUsers := deleteAllUsers()
+func DeleteAllUsers() ([]models.User, error) {
+	deletedUsers, err := deleteAllUsers()
+	if err != nil {
+		return []models.User{}, err
+	}
 	if len(deletedUsers) == 0 {
-		return []models.User{}
+		return []models.User{}, errors.New("no deleted user")
 	}
-	return deletedUsers
+	return deletedUsers, nil
 }
