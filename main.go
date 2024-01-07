@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/manavjain2002/go-amazon-clone-backend/routers"
+	"github.com/manavjain2002/go-amazon-clone-backend/api/routers"
 )
 
 func main() {
-	
+
 	fmt.Println("Welcome to Online Order App.")
 	r := routers.Router()
 

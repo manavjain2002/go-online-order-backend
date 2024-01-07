@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/manavjain2002/go-amazon-clone-backend/db"
-	"github.com/manavjain2002/go-amazon-clone-backend/models"
+	"github.com/manavjain2002/go-amazon-clone-backend/api/db"
+	"github.com/manavjain2002/go-amazon-clone-backend/api/models"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/manavjain2002/go-amazon-clone-backend/models"
+	"github.com/manavjain2002/go-amazon-clone-backend/api/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
