@@ -141,34 +141,45 @@ func GetAllOrders() ([]models.Order, error) {
 	return orders, nil
 }
 
-func CreateOneOrder(order models.Order) (models.Order, error) {
+func CreateOneOrder(order models.Order) error {
 	product, _ := GetOneProduct(order.ProductID.Hex())
+
+	user, _ := GetOneUser(order.UserID.Hex())
 
 	order.Price = product.Price * order.Quantity
 
 	inserted, err := insertOneOrder(order)
 	if err != nil {
-		return models.Order{}, err
+		return err
 	}
 	if inserted != (&mongo.InsertOneResult{}) {
 
-		id := inserted.InsertedID.(string)
-
-		createdOrder, _ := GetOneOrder(id)
 		var updatedValue = primitive.M{
 			"quantity": product.Quantity - order.Quantity,
 		}
 
 		updatedProduct, err := UpdateOneProduct(order.ProductID.Hex(), updatedValue)
 		if err != nil {
-			return models.Order{}, errors.New("product quantity not updated")
+			return errors.New("product quantity not updated")
 		}
 		if updatedProduct != (models.Product{}) {
-			return createdOrder, errors.New("product quantity not yet updated")
+			return errors.New("product quantity not yet updated")
 		}
-		return createdOrder, nil
+
+		updatedUserValue := primitive.M{
+			"noOfOrders": user.NumberOfOrders + 1,
+		}
+
+		updatedUser, err := UpdateOneUser(order.UserID.Hex(), updatedUserValue)
+		if err != nil {
+			return errors.New("user's no of orders not updated")
+		}
+		if updatedUser != (models.User{}) {
+			return errors.New("user's noOfOrders not yet updated")
+		}
+		return nil
 	} else {
-		return models.Order{}, errors.New("unable to insert new order")
+		return errors.New("unable to insert new order")
 	}
 }
 

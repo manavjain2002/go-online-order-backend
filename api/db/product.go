@@ -8,6 +8,7 @@ import (
 	"github.com/manavjain2002/go-amazon-clone-backend/api/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var productCollection = Db.Collection("Product")
@@ -43,13 +44,13 @@ func getAllProducts() ([]models.Product, error) {
 	return products, nil
 }
 
-func insertOneProduct(product models.Product) (interface{}, error) {
+func insertOneProduct(product models.Product) (*mongo.InsertOneResult, error) {
 	inserted, err := productCollection.InsertOne(context.Background(), product)
 	if err != nil {
-		return primitive.NilObjectID, err
+		return &mongo.InsertOneResult{}, err
 	}
 
-	return inserted.InsertedID, nil
+	return inserted, nil
 }
 
 func updateOneProduct(id primitive.ObjectID, updatedValues primitive.M) (models.Product, error) {
@@ -148,15 +149,16 @@ func GetAllProducts() ([]models.Product, error) {
 	return products, nil
 }
 
-func CreateOneProduct(product models.Product) (interface{}, error) {
+func CreateOneProduct(product models.Product) error {
 	id, err := insertOneProduct(product)
 	if err != nil {
-		return models.Product{}, err
+		return err
 	}
-	if id == primitive.NilObjectID {
-		return primitive.NilObjectID, errors.New("no product created")
+
+	if id == (&mongo.InsertOneResult{}){
+		return errors.New("no product created")
 	}
-	return id, nil
+	return nil
 }
 
 func UpdateOneProduct(id string, updatedValues primitive.M) (models.Product, error) {

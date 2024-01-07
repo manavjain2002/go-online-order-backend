@@ -42,11 +42,11 @@ func CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	var order models.Order
 	json.NewDecoder(r.Body).Decode(&order)
-	result, err := db.CreateOneOrder(order)
+	err := db.CreateOneOrder(order)
 	if err != nil {
 		json.NewEncoder(w).Encode(err)
 	} else {
-		json.NewEncoder(w).Encode(result)
+		json.NewEncoder(w).Encode("Product created")
 	}
 }
 

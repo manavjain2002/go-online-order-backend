@@ -39,12 +39,12 @@ func CreateProduct(w http.ResponseWriter, r *http.Request) {
 
 	var product models.Product
 	json.NewDecoder(r.Body).Decode(&product)
-	result, err := db.CreateOneProduct(product)
+	err := db.CreateOneProduct(product)
 	if err != nil {
 		json.NewEncoder(w).Encode(err.Error())
 		return
 	}
-	json.NewEncoder(w).Encode(result)
+	json.NewEncoder(w).Encode("Product created")
 }
 
 func UpdateProduct(w http.ResponseWriter, r *http.Request) {
