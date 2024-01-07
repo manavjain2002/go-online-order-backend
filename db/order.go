@@ -8,6 +8,7 @@ import (
 	"github.com/manavjain2002/go-amazon-clone-backend/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var orderCollection = Db.Collection("Order")
@@ -43,16 +44,16 @@ func getAllOrders() []models.Order {
 	return orders
 }
 
-func insertOneOrder(order models.Order) error {
+func insertOneOrder(order models.Order) (*mongo.InsertOneResult, error) {
 	inserted, err := orderCollection.InsertOne(context.Background(), order)
 	if err != nil {
 		fmt.Println("Unable to insert one orders. Error: ", err)
-		return err
+		return &mongo.InsertOneResult{}, err
 	}
 
 	fmt.Println("Order created with id : ", inserted.InsertedID)
 	fmt.Println("Created Order : ", order)
-	return nil
+	return inserted, nil
 }
 
 func updateOneOrder(id primitive.ObjectID, updatedValues primitive.M) models.Order {
@@ -129,11 +130,28 @@ func GetAllOrders() ([]models.Order, error) {
 }
 
 func CreateOneOrder(order models.Order) error {
-	err := insertOneOrder(order)
+	product, _ := GetOneProduct(order.ProductID.Hex())
+
+	order.Price = product.Price * order.Quantity
+
+	inserted, err := insertOneOrder(order)
 	if err != nil {
 		return err
 	}
-	return nil
+	if inserted != (&mongo.InsertOneResult{}){
+	
+		var updatedValue = primitive.M{
+			"quantity": product.Quantity-order.Quantity,
+		}
+
+		var updatedProduct = UpdateOneProduct(order.ProductID.Hex(), updatedValue)
+		if updatedProduct != (models.Product{}){
+			return errors.New("product quantity not yet updated")
+		}
+		return nil
+	} else {
+		return errors.New("unable to insert new order")
+	}
 }
 
 func UpdateOneOrder(id string, updatedValues primitive.M) models.Order {
