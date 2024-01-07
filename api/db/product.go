@@ -8,27 +8,27 @@ import (
 	"github.com/manavjain2002/go-amazon-clone-backend/api/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var productCollection = Db.Collection("Product")
 
-func getOneProduct(id primitive.ObjectID) models.Product {
+func getOneProduct(id primitive.ObjectID) (models.Product, error) {
 	data := productCollection.FindOne(context.Background(), bson.M{"_id": id})
 
 	var product models.Product
 	err := data.Decode(&product)
 	if err != nil {
-		fmt.Println("Unable to find Product with id", id, ".Error: ", err)
-		return models.Product{}
+		return models.Product{}, err
 	}
 
-	return product
+	return product, nil
 }
 
-func getAllProducts() []models.Product {
+func getAllProducts() ([]models.Product, error) {
 	cursor, err := productCollection.Find(context.Background(), bson.M{})
 	if err != nil {
-		fmt.Println("Unable to find all products. Error: ", err)
+		return []models.Product{}, err
 	}
 
 	var products []models.Product
@@ -36,26 +36,24 @@ func getAllProducts() []models.Product {
 		var product models.Product
 		err := cursor.Decode(&product)
 		if err != nil {
-			fmt.Println("Unable to decode products. Error: ", err)
+			return []models.Product{}, err
 		}
 		products = append(products, product)
 	}
 
-	return products
+	return products, nil
 }
 
-func insertOneProduct(product models.Product) interface{} {
+func insertOneProduct(product models.Product) (*mongo.InsertOneResult, error) {
 	inserted, err := productCollection.InsertOne(context.Background(), product)
 	if err != nil {
-		fmt.Println("Unable to insert one products. Error: ", err)
-		return primitive.NilObjectID
+		return &mongo.InsertOneResult{}, err
 	}
 
-	fmt.Println("Product created with id : ", inserted.InsertedID)
-	return inserted.InsertedID
+	return inserted, nil
 }
 
-func updateOneProduct(id primitive.ObjectID, updatedValues primitive.M) models.Product {
+func updateOneProduct(id primitive.ObjectID, updatedValues primitive.M) (models.Product, error) {
 
 	filter := bson.M{"_id": id}
 
@@ -63,55 +61,72 @@ func updateOneProduct(id primitive.ObjectID, updatedValues primitive.M) models.P
 
 	updated, err := productCollection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
-		fmt.Println("Unable to update one product. Error: ", err)
+		return models.Product{}, err
 	}
 
 	if updated.ModifiedCount > 0 {
 		fmt.Println("Product successfully updated with id: ", id)
+		updatedProduct, err := getOneProduct(id)
+		if err != nil {
+			return updatedProduct, err
+		}
+
+		return updatedProduct, nil
+	} else {
+		return models.Product{}, errors.New("no product modified")
 	}
 
-	updatedProduct := getOneProduct(id)
-
-	return updatedProduct
 }
 
-func deleteOneProduct(id primitive.ObjectID) models.Product {
+func deleteOneProduct(id primitive.ObjectID) (models.Product, error) {
 
-	deletedProduct := getOneProduct(id)
+	deletedProduct, err := getOneProduct(id)
+	if err != nil {
+		return models.Product{}, err
+	}
+
 	filter := bson.M{"_id": id}
 
 	deleted, err := productCollection.DeleteOne(context.Background(), filter)
 	if err != nil {
-		fmt.Println("Unable to delete one product. Error: ", err)
+		return models.Product{}, err
 	}
 
 	if deleted.DeletedCount > 0 {
 		fmt.Println("Product successfully updated with id: ", id)
+		return deletedProduct, nil
+	} else {
+		return models.Product{}, errors.New("no product deleted")
 	}
-
-	return deletedProduct
 }
 
-func deleteAllProducts() []models.Product {
+func deleteAllProducts() ([]models.Product, error) {
 
-	deletedProducts := getAllProducts()
-
+	deletedProducts, err := getAllProducts()
+	if err != nil {
+		return []models.Product{}, err
+	}
 	deleted, err := productCollection.DeleteMany(context.Background(), bson.M{})
 	if err != nil {
-		fmt.Println("Unable to delete all products. Error: ", err)
+		return []models.Product{}, err
 	}
 
 	if deleted.DeletedCount > 0 {
-		fmt.Println("Products successfully deleted")
+		return deletedProducts, nil
+	} else {
+		return []models.Product{}, errors.New("no deleted products")
 	}
 
-	return deletedProducts
 }
 
 func GetOneProduct(id string) (models.Product, error) {
 	productId, _ := primitive.ObjectIDFromHex(id)
 
-	product := getOneProduct(productId)
+	product, err := getOneProduct(productId)
+
+	if err != nil {
+		return models.Product{}, err
+	}
 
 	if product == (models.Product{}) {
 		return models.Product{}, errors.New("no such id")
@@ -121,49 +136,77 @@ func GetOneProduct(id string) (models.Product, error) {
 }
 
 func GetAllProducts() ([]models.Product, error) {
-	products := getAllProducts()
+	products, err := getAllProducts()
+
+	if err != nil {
+		return []models.Product{}, err
+	}
 
 	if len(products) == 0 {
 		return []models.Product{}, errors.New("no products")
 	}
+
 	return products, nil
 }
 
-func CreateOneProduct(product models.Product) (interface{}, error) {
-	id := insertOneProduct(product)
-	if id == primitive.NilObjectID {
-		return primitive.NilObjectID, errors.New("no product created")
+func CreateOneProduct(product models.Product) error {
+	id, err := insertOneProduct(product)
+	if err != nil {
+		return err
 	}
-	return id, nil
+
+	if id == (&mongo.InsertOneResult{}){
+		return errors.New("no product created")
+	}
+	return nil
 }
 
-func UpdateOneProduct(id string, updatedValues primitive.M) models.Product {
+func UpdateOneProduct(id string, updatedValues primitive.M) (models.Product, error) {
 	productId, _ := primitive.ObjectIDFromHex(id)
 
-	product := getOneProduct(productId)
+	product, err := getOneProduct(productId)
 
-	if product != (models.Product{}) {
-		updatedProduct := updateOneProduct(productId, updatedValues)
-		return updatedProduct
+	if err != nil {
+		return models.Product{}, err
 	}
 
-	return models.Product{}
+	if product != (models.Product{}) {
+		updatedProduct, err := updateOneProduct(productId, updatedValues)
+
+		if err != nil {
+			return models.Product{}, err
+		}
+
+		return updatedProduct, nil
+	}
+
+	return models.Product{}, errors.New("no updated product")
 }
 
-func DeleteOneProduct(id string) models.Product {
+func DeleteOneProduct(id string) (models.Product, error) {
 	productId, _ := primitive.ObjectIDFromHex(id)
 
-	product := getOneProduct(productId)
+	product, err := getOneProduct(productId)
 
-	if product != (models.Product{}) {
-		deletedProduct := deleteOneProduct(productId)
-		return deletedProduct
+	if err != nil {
+		return models.Product{}, err
 	}
 
-	return models.Product{}
+	if product != (models.Product{}) {
+		deletedProduct, err := deleteOneProduct(productId)
+		if err != nil {
+			return models.Product{}, err
+		}
+		return deletedProduct, nil
+	}
+
+	return models.Product{}, errors.New("no product deleted")
 }
 
-func DeleteAllProducts() []models.Product {
-	deletedProducts := deleteAllProducts()
-	return deletedProducts
+func DeleteAllProducts() ([]models.Product, error) {
+	deletedProducts, err := deleteAllProducts()
+	if err != nil {
+		return []models.Product{}, err
+	}
+	return deletedProducts, nil
 }

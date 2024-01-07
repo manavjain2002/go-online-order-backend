@@ -39,12 +39,12 @@ func CreateProduct(w http.ResponseWriter, r *http.Request) {
 
 	var product models.Product
 	json.NewDecoder(r.Body).Decode(&product)
-	result, err := db.CreateOneProduct(product)
+	err := db.CreateOneProduct(product)
 	if err != nil {
 		json.NewEncoder(w).Encode(err.Error())
 		return
 	}
-	json.NewEncoder(w).Encode(result)
+	json.NewEncoder(w).Encode("Product created")
 }
 
 func UpdateProduct(w http.ResponseWriter, r *http.Request) {
@@ -52,10 +52,14 @@ func UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Allow-Control-Allow-Methods", "PUT")
 
 	params := mux.Vars(r)
-	
+
 	var updateValues primitive.M
 	json.NewDecoder(r.Body).Decode(&updateValues)
-	result := db.UpdateOneProduct(params["id"], updateValues)
+	result, err := db.UpdateOneProduct(params["id"], updateValues)
+	if err != nil {
+		json.NewEncoder(w).Encode(err)
+		return
+	}
 	json.NewEncoder(w).Encode(result)
 }
 
@@ -64,7 +68,11 @@ func DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Allow-Control-Allow-Methods", "DELETE")
 
 	params := mux.Vars(r)
-	result := db.DeleteOneProduct(params["id"])	
+	result, err := db.DeleteOneProduct(params["id"])
+	if err != nil {
+		json.NewEncoder(w).Encode(err)
+		return
+	}
 	json.NewEncoder(w).Encode(result)
 }
 
@@ -72,6 +80,10 @@ func DeleteAllProducts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Allow-Control-Allow-Methods", "DELETE")
 
-	result := db.DeleteAllProducts()	
+	result, err := db.DeleteAllProducts()
+	if err != nil {
+		json.NewEncoder(w).Encode(err)
+		return
+	}
 	json.NewEncoder(w).Encode(result)
 }

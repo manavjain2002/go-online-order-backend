@@ -55,8 +55,8 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&user)
 	result := db.CreateOneUser(user)
 	fmt.Println(result)
-	if(result == primitive.ObjectID{}){
-		json.NewEncoder(w).Encode("User already exists")	
+	if (result == primitive.ObjectID{}) {
+		json.NewEncoder(w).Encode("User already exists")
 	} else {
 		json.NewEncoder(w).Encode(result)
 	}
@@ -70,8 +70,12 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	var updateValues primitive.M
 	json.NewDecoder(r.Body).Decode(&updateValues)
-	result := db.UpdateOneUser(params["id"], updateValues)
-	if result == (models.User{}){
+	result, err := db.UpdateOneUser(params["id"], updateValues)
+	if err != nil {
+		json.NewEncoder(w).Encode(err)
+		return
+	}
+	if result == (models.User{}) {
 		json.NewEncoder(w).Encode("No user found")
 		return
 	}
@@ -83,11 +87,15 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Allow-Control-Allow-Methods", "DELETE")
 
 	params := mux.Vars(r)
-	result := db.DeleteOneUser(params["id"])
-	if result == (models.User{}){
+	result, err := db.DeleteOneUser(params["id"])
+	if err != nil {
+		json.NewEncoder(w).Encode(err)
+		return
+	}
+	if result == (models.User{}) {
 		json.NewEncoder(w).Encode("No such user found")
 		return
-	}	
+	}
 	json.NewEncoder(w).Encode(result)
 }
 
@@ -95,7 +103,11 @@ func DeleteAllUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Allow-Control-Allow-Methods", "DELETE")
 
-	result := db.DeleteAllUsers()	
+	result, err := db.DeleteAllUsers()
+	if err != nil {
+		json.NewEncoder(w).Encode(err)
+		return
+	}
 	if len(result) == 0 {
 		json.NewEncoder(w).Encode("No users found")
 		return
