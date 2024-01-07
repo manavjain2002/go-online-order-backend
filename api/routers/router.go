@@ -5,8 +5,6 @@ import (
 	"github.com/manavjain2002/go-amazon-clone-backend/api/controllers"
 )
 
-var UserRouter *mux.Router
-
 func Router() *mux.Router {
 
 	router := mux.NewRouter()
