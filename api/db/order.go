@@ -159,7 +159,10 @@ func CreateOneOrder(order models.Order) (models.Order, error) {
 			"quantity": product.Quantity - order.Quantity,
 		}
 
-		var updatedProduct = UpdateOneProduct(order.ProductID.Hex(), updatedValue)
+		updatedProduct, err := UpdateOneProduct(order.ProductID.Hex(), updatedValue)
+		if err != nil {
+			return models.Order{}, errors.New("product quantity not updated")
+		}
 		if updatedProduct != (models.Product{}) {
 			return createdOrder, errors.New("product quantity not yet updated")
 		}
